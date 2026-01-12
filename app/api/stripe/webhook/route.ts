@@ -52,7 +52,8 @@ export async function POST(req: Request) {
       let currentPeriodEnd: string | null = null;
 
       if (subscriptionId) {
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const subscription =
+          (await stripe.subscriptions.retrieve(subscriptionId)) as Stripe.Subscription;
         subscriptionStatus = subscription.status;
         const periodEndSeconds = subscription.current_period_end ?? null;
         currentPeriodEnd = periodEndSeconds
