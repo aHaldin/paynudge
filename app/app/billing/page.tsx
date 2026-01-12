@@ -31,6 +31,18 @@ export default async function BillingPage({ searchParams }: BillingPageProps) {
   const trialExpired = isTrialExpired(profile);
   const access = hasAccess(profile);
 
+  if (process.env.NEXT_PUBLIC_BILLING_ENABLED !== 'true') {
+    return (
+      <div className="space-y-6">
+        <Card title="Billing status">
+          <div className="space-y-3 text-sm text-slate-600">
+            <p>Billing is disabled for this environment.</p>
+          </div>
+        </Card>
+      </div>
+    );
+  }
+
   return (
     <div className="space-y-6">
       <Card title="Billing status">

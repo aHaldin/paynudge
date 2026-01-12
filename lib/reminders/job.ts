@@ -29,7 +29,7 @@ export async function runDailyReminderJob(): Promise<ReminderJobSummary> {
     { subscription_status: string | null; trial_ends_at: string | null } | null
   >();
 
-  const { data: rules = [], error: ruleError } = await supabase
+  const { data: rulesData, error: ruleError } = await supabase
     .from('reminder_rules')
     .select('*')
     .eq('enabled', true);
@@ -37,6 +37,7 @@ export async function runDailyReminderJob(): Promise<ReminderJobSummary> {
   if (ruleError) {
     throw new Error(ruleError.message);
   }
+  const rules = rulesData ?? [];
 
   const summary: ReminderJobSummary = {
     rulesProcessed: rules.length,
@@ -60,7 +61,7 @@ export async function runDailyReminderJob(): Promise<ReminderJobSummary> {
     if (!hasAccess(billingProfile)) {
       continue;
     }
-    const { data: invoices = [], error: invoiceError } = await supabase
+    const { data: invoicesData, error: invoiceError } = await supabase
       .from('invoices')
       .select(
         'id, user_id, client_id, invoice_number, amount_pennies, issue_date, due_date, status, paid_at, clients(name,email)'
@@ -74,6 +75,7 @@ export async function runDailyReminderJob(): Promise<ReminderJobSummary> {
       continue;
     }
 
+    const invoices = invoicesData ?? [];
     for (const invoice of invoices) {
       if (invoice.status === 'paid' || invoice.status === 'cancelled' || invoice.status === 'void') {
         continue;
@@ -81,6 +83,9 @@ export async function runDailyReminderJob(): Promise<ReminderJobSummary> {
       if (invoice.paid_at) {
         continue;
       }
+      const client = Array.isArray(invoice.clients)
+        ? invoice.clients[0] ?? null
+        : invoice.clients ?? null;
       const dueDate = new Date(invoice.due_date);
       const offset = differenceInCalendarDays(today, dueDate);
 
@@ -90,12 +95,12 @@ export async function runDailyReminderJob(): Promise<ReminderJobSummary> {
 
       summary.invoicesMatched += 1;
 
-      if (!invoice.clients?.email) {
+      if (!client?.email) {
         summary.skippedMissingEmail += 1;
         continue;
       }
 
-      const { data: existingReminders = [], error: reminderError } = await supabase
+      const { data: existingRemindersData, error: reminderError } = await supabase
         .from('reminders')
         .select('id')
         .eq('invoice_id', invoice.id)
@@ -107,6 +112,7 @@ export async function runDailyReminderJob(): Promise<ReminderJobSummary> {
         continue;
       }
 
+      const existingReminders = existingRemindersData ?? [];
       if (existingReminders.length > 0) {
         summary.skippedDuplicates += 1;
         continue;
@@ -115,13 +121,14 @@ export async function runDailyReminderJob(): Promise<ReminderJobSummary> {
       try {
         let templates = templateCache.get(`${rule.user_id}:${rule.tone}`);
         if (!templates) {
-          const { data: storedTemplates = [] } = await supabase
+          const { data: storedTemplatesData } = await supabase
             .from('reminder_templates')
             .select('tone, subject, body')
             .eq('user_id', rule.user_id)
             .eq('tone', rule.tone)
             .limit(1);
 
+          const storedTemplates = storedTemplatesData ?? [];
           const templateRecord = storedTemplates[0] ?? null;
 
           templates = templateRecord
@@ -160,8 +167,8 @@ export async function runDailyReminderJob(): Promise<ReminderJobSummary> {
           amount,
           dueDate: dueDateLabel,
           issueDate: issueDateLabel,
-          clientName: invoice.clients?.name ?? 'there',
-          clientEmail: invoice.clients.email,
+          clientName: client?.name ?? 'there',
+          clientEmail: client.email,
           businessName: process.env.BUSINESS_NAME ?? null,
           subjectTemplate: templates?.subjectTemplate ?? null,
           bodyTemplate: templates?.bodyTemplate ?? null,
@@ -174,7 +181,7 @@ export async function runDailyReminderJob(): Promise<ReminderJobSummary> {
           rule_id: rule.id,
           subject: result.subject,
           body: result.body,
-          sent_to: invoice.clients.email,
+          sent_to: client.email,
           provider_id: result.providerId
         });
 

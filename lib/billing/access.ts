@@ -41,5 +41,8 @@ export function daysLeft(profile: BillingProfile | null) {
 }
 
 export function hasAccess(profile: BillingProfile | null) {
+  if (process.env.BILLING_ENABLED !== 'true') {
+    return true;
+  }
   return isSubscriptionActive(profile) || isTrialActive(profile);
 }

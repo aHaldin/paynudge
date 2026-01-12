@@ -42,7 +42,10 @@ export function ReminderRuleForm() {
     startTransition(async () => {
       const result = await createReminderRuleAction(values);
       if (result.error) {
-        form.setError('root', { message: result.error.form?.[0] });
+        const formError = (result.error as { form?: string[] }).form?.[0];
+        form.setError('root', {
+          message: formError ?? 'Unable to save reminder rule.'
+        });
         return;
       }
       form.reset({ daysOffset: -3, tone: 'friendly', enabled: true });

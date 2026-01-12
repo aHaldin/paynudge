@@ -45,7 +45,10 @@ export function ClientForm({ onCreated }: ClientFormProps) {
     startTransition(async () => {
       const result = await createClientAction(values);
       if (result.error) {
-        form.setError('root', { message: result.error.form?.[0] });
+        const formError = (result.error as { form?: string[] }).form?.[0];
+        form.setError('root', {
+          message: formError ?? 'Unable to save client.'
+        });
         return;
       }
       form.reset();

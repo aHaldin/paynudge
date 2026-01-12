@@ -9,6 +9,7 @@ import {
   isTrialActive,
   isTrialExpired
 } from '@/lib/billing/access';
+import { isBillingEnabledClient } from '@/lib/billing/config';
 
 type DashboardBillingBannerProps = {
   subscription_status?: string | null;
@@ -16,6 +17,9 @@ type DashboardBillingBannerProps = {
 };
 
 export function DashboardBillingBanner(props: DashboardBillingBannerProps) {
+  if (!isBillingEnabledClient()) {
+    return null;
+  }
   const subscriptionActive = isSubscriptionActive(props);
   const trialActive = isTrialActive(props);
   const trialExpired = isTrialExpired(props);

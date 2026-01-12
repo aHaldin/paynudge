@@ -1,6 +1,6 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import Stripe from 'stripe';
+import type Stripe from 'stripe';
 import { existsSync } from 'node:fs';
 import path from 'node:path';
 
@@ -9,6 +9,10 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 export const runtime = 'nodejs';
 
 export async function POST() {
+  if (process.env.BILLING_ENABLED !== 'true') {
+    return NextResponse.json({ error: 'Billing disabled' }, { status: 501 });
+  }
+
   const cwd = process.cwd();
   const envLocalPath = path.join(cwd, '.env.local');
   const hasEnvLocal = existsSync(envLocalPath);
@@ -49,6 +53,7 @@ export async function POST() {
   const origin = headers().get('origin') ?? 'http://localhost:3003';
 
   try {
+    const { default: Stripe } = await import('stripe');
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',

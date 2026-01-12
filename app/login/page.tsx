@@ -1,3 +1,5 @@
+import { Suspense } from 'react';
+
 import { LoginForm } from '@/components/forms/LoginForm';
 import { MarketingNavbar } from '@/components/navigation/MarketingNavbar';
 
@@ -22,7 +24,9 @@ export default function LoginPage() {
               </p>
             </div>
           </div>
-          <LoginForm />
+          <Suspense fallback={<div className="h-80 rounded-2xl border border-slate-200 bg-white shadow-sm" />}>
+            <LoginForm />
+          </Suspense>
         </div>
       </div>
     </main>

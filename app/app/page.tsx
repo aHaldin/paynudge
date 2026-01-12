@@ -16,29 +16,35 @@ export default async function DashboardPage() {
     data: { user }
   } = await supabase.auth.getUser();
 
-  const { data: invoices = [] } = await supabase
+  const { data: invoices } = await supabase
     .from('invoices')
     .select(
-      'id, invoice_number, amount_pennies, due_date, status, paid_at, clients(name), reminders(sent_at)'
+      'id, invoice_number, amount_pennies, due_date, issue_date, status, paid_at, clients(name), reminders(sent_at)'
     )
     .eq('user_id', user?.id ?? '')
     .order('due_date', { ascending: true });
+
+  const invoicesSafe = invoices ?? [];
 
   const { count: clientCount = 0 } = await supabase
     .from('clients')
     .select('id', { count: 'exact', head: true })
     .eq('user_id', user?.id ?? '');
 
-  const { data: rules = [] } = await supabase
+  const { data: rules } = await supabase
     .from('reminder_rules')
     .select('days_offset, tone')
     .eq('user_id', user?.id ?? '')
     .eq('enabled', true);
 
-  const { data: templatesData = [] } = await supabase
+  const rulesSafe = rules ?? [];
+
+  const { data: templatesData } = await supabase
     .from('reminder_templates')
     .select('tone, subject, body')
     .eq('user_id', user?.id ?? '');
+
+  const templates = templatesData ?? [];
 
   const senderProfile = await getSenderProfile(supabase, user?.id ?? '');
   const { data: profile } = await supabase
@@ -64,13 +70,13 @@ export default async function DashboardPage() {
 
   const today = startOfDay(new Date());
 
-  const outstandingInvoices = invoices.filter(
+  const outstandingInvoices = invoicesSafe.filter(
     (invoice) => invoice.status === 'sent' && !invoice.paid_at
   );
 
-  const hasInvoices = invoices.length > 0;
-  const hasClients = clientCount > 0;
-  const hasRulesEnabled = rules.length > 0;
+  const hasInvoices = invoicesSafe.length > 0;
+  const hasClients = (clientCount ?? 0) > 0;
+  const hasRulesEnabled = rulesSafe.length > 0;
 
   const setupItems = [
     {
@@ -115,7 +121,7 @@ export default async function DashboardPage() {
     return isBefore(due, today);
   }).length;
 
-  const rows = invoices.map((invoice) => {
+  const rows = invoicesSafe.map((invoice) => {
     const reminders = invoice.reminders ?? [];
     const lastReminder = reminders
       .map((reminder) => new Date(reminder.sent_at))
@@ -127,9 +133,17 @@ export default async function DashboardPage() {
     };
   });
 
+  const getClientName = (invoice: any) => {
+    if (!invoice?.clients) return 'Client';
+    if (Array.isArray(invoice.clients)) {
+      return invoice.clients[0]?.name ?? 'Client';
+    }
+    return invoice.clients?.name ?? 'Client';
+  };
+
   const nextReminderDate = outstandingInvoices.reduce<Date | null>((next, invoice) => {
     const dueDate = startOfDay(new Date(invoice.due_date));
-    for (const rule of rules) {
+    for (const rule of rulesSafe) {
       const reminderDate = addDays(dueDate, rule.days_offset);
       if (reminderDate < today) {
         continue;
@@ -158,10 +172,12 @@ export default async function DashboardPage() {
         ? `Next reminder scheduled ${nextReminderText}. ${monitoredCount} invoice${monitoredCount === 1 ? '' : 's'} being monitored.`
         : `${monitoredCount} invoice${monitoredCount === 1 ? '' : 's'} being monitored.`;
 
-  const sortedRules = [...rules].sort((a, b) => a.days_offset - b.days_offset);
+  const sortedRules = [...rulesSafe].sort((a, b) => a.days_offset - b.days_offset);
   const previewRule = sortedRules[0] ?? null;
   const previewInvoice = outstandingInvoices[0] ?? null;
   const previewTone = previewRule?.tone ?? 'friendly';
+  const previewToneKey: 'friendly' | 'neutral' | 'firm' =
+    previewTone === 'neutral' || previewTone === 'firm' ? previewTone : 'friendly';
   const previewTiming =
     previewRule?.days_offset === undefined
       ? 'No reminder rules set'
@@ -175,17 +191,23 @@ export default async function DashboardPage() {
     ? `${previewTone.charAt(0).toUpperCase() + previewTone.slice(1)} reminder - ${previewTiming.toLowerCase()} to keep things polite and professional.`
     : 'Friendly reminder - sent at the right moment to keep things polite and professional.';
 
-  const storedTemplate = templatesData.find(
+  const storedTemplate = templates.find(
     (template) => template.tone === previewTone
   );
-  const previewTemplate = storedTemplate ?? defaultEmailTemplates[previewTone];
+  const previewTemplate = storedTemplate ?? defaultEmailTemplates[previewToneKey];
+  const previewClient = (previewInvoice
+    ? Array.isArray(previewInvoice.clients)
+      ? previewInvoice.clients[0] ?? null
+      : previewInvoice.clients ?? null
+    : null) as { name?: string | null; email?: string | null } | null;
+
   const preview = previewInvoice
     ? renderReminderContent({
         templateSubject: previewTemplate.subject,
         templateBody: previewTemplate.body,
         tone: previewTone,
         daysOffset: previewRule?.days_offset ?? 0,
-        clientName: previewInvoice.clients?.name ?? 'Client',
+        clientName: previewClient?.name ?? 'Client',
         invoiceNumber: previewInvoice.invoice_number,
         amount: formatGBP(previewInvoice.amount_pennies),
         dueDate: formatDate(previewInvoice.due_date),
@@ -196,9 +218,9 @@ export default async function DashboardPage() {
     : null;
 
   const toneSummary = Array.from(
-    new Set(rules.map((rule) => rule.tone))
+    new Set(rulesSafe.map((rule) => rule.tone))
   ).map((tone) => tone.charAt(0).toUpperCase() + tone.slice(1));
-  const offsets = rules.map((rule) => rule.days_offset);
+  const offsets = rulesSafe.map((rule) => rule.days_offset);
   const timingSummary =
     offsets.length > 0
       ? `${Math.min(...offsets)} to ${Math.max(...offsets)} days from due date`
@@ -280,9 +302,9 @@ export default async function DashboardPage() {
           <p className="text-sm text-slate-500">Past due and unpaid</p>
         </Card>
         <Card title="Reminder activity">
-          <p className="text-2xl font-semibold">{rules.length}</p>
+          <p className="text-2xl font-semibold">{rulesSafe.length}</p>
           <p className="text-sm text-slate-500">
-            {rules.length === 0
+            {rulesSafe.length === 0
               ? 'No reminder rules yet'
               : `${toneSummary.join(' - ')} - ${timingSummary}`}
           </p>
@@ -329,7 +351,7 @@ export default async function DashboardPage() {
                       Recipient
                     </span>
                     <span className="mt-1 block text-sm text-slate-600">
-                      {previewInvoice?.clients?.name ?? 'Client'} (client email)
+                      {previewClient?.name ?? 'Client'} (client email)
                     </span>
                   </div>
                   <div>
@@ -385,15 +407,12 @@ export default async function DashboardPage() {
                 </tr>
               ) : (
                 rows.map((invoice) => (
-                  <tr
-                    key={invoice.id}
-                    className="border-t border-slate-100"
-                  >
+                  <tr key={invoice.id} className="border-t border-slate-100">
                     <td className="py-3 font-medium">
                       {invoice.invoice_number}
                     </td>
                     <td className="text-slate-600">
-                      {invoice.clients?.name ?? 'Client'}
+                      {getClientName(invoice) ?? 'Client'}
                     </td>
                     <td>{formatDate(invoice.due_date)}</td>
                     <td className="capitalize">{invoice.status}</td>

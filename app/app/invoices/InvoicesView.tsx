@@ -56,6 +56,21 @@ type InvoicesViewProps = {
   senderProfile?: SenderProfile | null;
 };
 
+const normalizeInvoice = (
+  invoice: any,
+  reminders?: InvoiceRecord['reminders']
+): InvoiceRecord => {
+  const clients = Array.isArray(invoice.clients)
+    ? invoice.clients[0] ?? null
+    : invoice.clients ?? null;
+
+  return {
+    ...invoice,
+    clients,
+    reminders: reminders ?? invoice.reminders
+  };
+};
+
 const statusStyles: Record<string, string> = {
   paid: 'bg-green-50 text-green-700',
   overdue: 'bg-red-50 text-red-700',
@@ -239,7 +254,7 @@ export function InvoicesView({
         setInvoices((prev) =>
           prev.map((invoice) =>
             invoice.id === result.invoice.id
-              ? { ...result.invoice, reminders: invoice.reminders }
+              ? normalizeInvoice(result.invoice, invoice.reminders)
               : invoice
           )
         );
@@ -754,7 +769,7 @@ export function InvoicesView({
                         </p>
                       </div>
                       <div className="rounded-lg border border-slate-200 bg-white p-3 text-sm text-slate-700 whitespace-pre-line">
-                        {previewEmail.body}
+                        {previewEmail.text}
                       </div>
                     </div>
                   ) : (
@@ -797,8 +812,9 @@ export function InvoicesView({
                 <InvoiceForm
                   clients={clients}
                   onCreated={(invoice) => {
-                    setInvoices((prev) => [invoice, ...prev]);
-                    setSelectedId(invoice.id);
+                    const normalized = normalizeInvoice(invoice);
+                    setInvoices((prev) => [normalized, ...prev]);
+                    setSelectedId(normalized.id);
                     setActiveTab('details');
                   }}
                 />

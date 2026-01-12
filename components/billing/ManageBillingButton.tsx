@@ -7,6 +7,10 @@ export function ManageBillingButton() {
   const [isPending, startTransition] = useTransition();
   const [error, setError] = useState<string | null>(null);
 
+  if (process.env.NEXT_PUBLIC_BILLING_ENABLED !== 'true') {
+    return null;
+  }
+
   const handleClick = () => {
     setError(null);
     startTransition(async () => {

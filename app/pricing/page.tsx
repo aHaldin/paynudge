@@ -1,5 +1,8 @@
+import Link from 'next/link';
+
 import { MarketingNavbar } from '@/components/navigation/MarketingNavbar';
 import { PricingSection } from '@/components/marketing/PricingSection';
+import { Button } from '@/components/ui/Button';
 
 export default function PricingPage() {
   return (

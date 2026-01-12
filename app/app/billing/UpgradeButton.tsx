@@ -6,6 +6,9 @@ import { Button } from '@/components/ui/Button';
 
 export function UpgradeButton() {
   const [isPending, startTransition] = useTransition();
+  if (process.env.NEXT_PUBLIC_BILLING_ENABLED !== 'true') {
+    return null;
+  }
 
   const handleUpgrade = () => {
     startTransition(async () => {

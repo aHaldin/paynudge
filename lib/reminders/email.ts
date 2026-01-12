@@ -48,7 +48,7 @@ export async function sendReminderEmail(input: EmailInput) {
     subject: rendered.subject,
     text: rendered.text,
     html: rendered.html,
-    replyTo: rendered.replyToEmail ?? undefined
+    reply_to: rendered.replyToEmail ?? undefined
   });
 
   if (response.error) {

@@ -53,7 +53,10 @@ export function AccountSettingsForm({
       const result = await saveAccountSettingsAction(values);
       if (result.error) {
         console.error(result.error);
-        const message = result.error.form?.[0] ?? 'Unable to save changes.';
+        const message =
+          'form' in result.error
+            ? result.error.form?.[0] ?? 'Unable to save changes.'
+            : 'Unable to save changes.';
         form.setError('root', { message });
         setToast(message);
         return;

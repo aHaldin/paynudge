@@ -6,17 +6,46 @@ import { createSupabaseServerClient } from '@/lib/supabase/server';
 import { ReminderTimeline } from '@/app/app/settings/reminders/ReminderTimeline';
 import { getSenderProfile } from '@/lib/reminders/profile';
 
+type ReminderRuleRow = {
+  id: string;
+  days_offset: number;
+  tone: 'friendly' | 'neutral' | 'firm';
+  enabled: boolean;
+};
+
+type PreviewInvoiceRow = {
+  invoice_number: string;
+  amount_pennies: number;
+  due_date: string;
+  issue_date: string;
+  clients: { name: string; email: string } | null;
+};
+
+const normalizePreviewInvoice = (
+  invoice: any | null
+): PreviewInvoiceRow | null => {
+  if (!invoice) return null;
+  const client = Array.isArray(invoice.clients)
+    ? invoice.clients[0] ?? null
+    : invoice.clients ?? null;
+  return {
+    ...invoice,
+    clients: client
+  };
+};
+
 export default async function ReminderSettingsPage() {
   const supabase = createSupabaseServerClient();
   const {
     data: { user }
   } = await supabase.auth.getUser();
 
-  const { data: rules = [] } = await supabase
+  const { data: rulesData } = await supabase
     .from('reminder_rules')
     .select('*')
     .eq('user_id', user?.id ?? '')
     .order('days_offset', { ascending: true });
+  const rules = (rulesData ?? []) as ReminderRuleRow[];
 
   const { data: templatesData } = await supabase
     .from('reminder_templates')
@@ -56,7 +85,9 @@ export default async function ReminderSettingsPage() {
     .limit(1)
     .maybeSingle();
 
-  const previewData = previewInvoice ?? fallbackInvoice ?? null;
+  const previewData = normalizePreviewInvoice(
+    previewInvoice ?? fallbackInvoice ?? null
+  );
 
   return (
     <div className="space-y-6">

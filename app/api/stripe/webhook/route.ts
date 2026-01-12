@@ -1,12 +1,15 @@
-import Stripe from 'stripe';
+import type Stripe from 'stripe';
 import { NextResponse } from 'next/server';
 
 import { createSupabaseAdminClient } from '@/lib/supabase/admin';
-import { getStripeClient } from '@/lib/stripe/server';
 
 export const runtime = 'nodejs';
 
 export async function POST(req: Request) {
+  if (process.env.BILLING_ENABLED !== 'true') {
+    return NextResponse.json({ error: 'Billing disabled' }, { status: 501 });
+  }
+
   const signature = req.headers.get('stripe-signature');
   const webhookSecret = process.env.STRIPE_WEBHOOK_SECRET ?? '';
 
@@ -15,7 +18,8 @@ export async function POST(req: Request) {
   }
 
   const body = await req.text();
-  const stripe = getStripeClient();
+  const { default: Stripe } = await import('stripe');
+  const stripe = new Stripe(process.env.STRIPE_SECRET_KEY ?? '');
 
   let event: Stripe.Event;
 
@@ -52,8 +56,11 @@ export async function POST(req: Request) {
       let currentPeriodEnd: string | null = null;
 
       if (subscriptionId) {
-        const subscription =
-          (await stripe.subscriptions.retrieve(subscriptionId)) as Stripe.Subscription;
+        const subscription = (await stripe.subscriptions.retrieve(
+          subscriptionId
+        )) as Stripe.Subscription & {
+          current_period_end?: number | null;
+        };
         subscriptionStatus = subscription.status;
         const periodEndSeconds = subscription.current_period_end ?? null;
         currentPeriodEnd = periodEndSeconds
@@ -96,7 +103,9 @@ export async function POST(req: Request) {
     event.type === 'customer.subscription.updated' ||
     event.type === 'customer.subscription.deleted'
   ) {
-    const subscription = event.data.object as Stripe.Subscription;
+    const subscription = event.data.object as Stripe.Subscription & {
+      current_period_end?: number | null;
+    };
     const customerId =
       typeof subscription.customer === 'string' ? subscription.customer : null;
     const status = subscription.status;

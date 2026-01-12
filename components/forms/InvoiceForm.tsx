@@ -46,6 +46,16 @@ type InvoiceFormProps = {
   }) => void;
 };
 
+const normalizeInvoice = (invoice: any) => {
+  const client = Array.isArray(invoice.clients)
+    ? invoice.clients[0] ?? null
+    : invoice.clients ?? null;
+  return {
+    ...invoice,
+    clients: client
+  };
+};
+
 export function InvoiceForm({ clients, onCreated }: InvoiceFormProps) {
   const router = useRouter();
   const [isPending, startTransition] = useTransition();
@@ -105,7 +115,10 @@ export function InvoiceForm({ clients, onCreated }: InvoiceFormProps) {
     startTransition(async () => {
       const result = await createInvoiceAction(values);
       if (result.error) {
-        form.setError('root', { message: result.error.form?.[0] });
+        const formError = (result.error as { form?: string[] }).form?.[0];
+        form.setError('root', {
+          message: formError ?? 'Unable to save invoice.'
+        });
         return;
       }
       form.reset({
@@ -119,7 +132,7 @@ export function InvoiceForm({ clients, onCreated }: InvoiceFormProps) {
       });
       setIsManualDueDate(false);
       if (result.invoice) {
-        onCreated?.(result.invoice);
+        onCreated?.(normalizeInvoice(result.invoice));
       } else {
         router.refresh();
       }

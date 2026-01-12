@@ -22,6 +22,13 @@ export default async function InvoicesPage() {
     .eq('user_id', user?.id ?? '')
     .order('created_at', { ascending: false });
 
+  const normalizedInvoices = (invoices ?? []).map((invoice) => ({
+    ...invoice,
+    clients: Array.isArray(invoice.clients)
+      ? invoice.clients[0] ?? null
+      : invoice.clients ?? null
+  }));
+
   const { data: rules = [] } = await supabase
     .from('reminder_rules')
     .select('days_offset, tone, enabled')
@@ -40,9 +47,9 @@ export default async function InvoicesPage() {
 
   return (
     <InvoicesView
-      clients={clients}
-      initialInvoices={invoices}
-      rules={rules}
+      clients={clients ?? []}
+      initialInvoices={normalizedInvoices}
+      rules={rules ?? []}
       senderProfile={senderProfileWithFallback}
     />
   );

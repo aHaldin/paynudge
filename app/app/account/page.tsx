@@ -69,6 +69,9 @@ export default async function AccountPage() {
           emailSignature: accountSettings?.email_signature ?? ''
         }}
         billingStatus={(() => {
+          if (process.env.NEXT_PUBLIC_BILLING_ENABLED !== 'true') {
+            return 'Billing disabled';
+          }
           const status = accountSettings?.subscription_status ?? null;
           if (status === 'active' || status === 'trialing') return 'Active';
           if (accountSettings?.trial_ends_at) {

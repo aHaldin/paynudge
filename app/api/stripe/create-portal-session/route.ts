@@ -1,12 +1,16 @@
 import { NextResponse } from 'next/server';
 import { headers } from 'next/headers';
-import Stripe from 'stripe';
+import type Stripe from 'stripe';
 
 import { createSupabaseServerClient } from '@/lib/supabase/server';
 
 export const runtime = 'nodejs';
 
 export async function POST() {
+  if (process.env.BILLING_ENABLED !== 'true') {
+    return NextResponse.json({ error: 'Billing disabled' }, { status: 501 });
+  }
+
   const supabase = createSupabaseServerClient();
   const {
     data: { user }
@@ -48,6 +52,7 @@ export async function POST() {
   }
 
   try {
+    const { default: Stripe } = await import('stripe');
     const stripe = new Stripe(secretKey);
     const session = await stripe.billingPortal.sessions.create({
       customer: profile.stripe_customer_id,

@@ -33,7 +33,10 @@ export function ReminderTemplateForm({
     startTransition(async () => {
       const result = await saveReminderTemplateAction(values);
       if (result.error) {
-        form.setError('root', { message: result.error.form?.[0] });
+        const formError = (result.error as { form?: string[] }).form?.[0];
+        form.setError('root', {
+          message: formError ?? 'Unable to save template.'
+        });
         return;
       }
       form.clearErrors('root');
