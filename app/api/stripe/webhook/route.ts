@@ -52,10 +52,16 @@ export async function POST(req: Request) {
       let currentPeriodEnd: string | null = null;
 
       if (subscriptionId) {
-        const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+        const subscriptionResponse =
+          await stripe.subscriptions.retrieve(subscriptionId);
+        const subscription =
+          (subscriptionResponse as unknown as { data?: Stripe.Subscription }).data ??
+          (subscriptionResponse as Stripe.Subscription);
         subscriptionStatus = subscription.status;
-        currentPeriodEnd = subscription.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toISOString()
+        const periodEndSeconds =
+          subscription.current_period?.end ?? subscription.current_period_end ?? null;
+        currentPeriodEnd = periodEndSeconds
+          ? new Date(periodEndSeconds * 1000).toISOString()
           : null;
       }
 
@@ -98,8 +104,10 @@ export async function POST(req: Request) {
     const customerId =
       typeof subscription.customer === 'string' ? subscription.customer : null;
     const status = subscription.status;
-    const currentPeriodEnd = subscription.current_period_end
-      ? new Date(subscription.current_period_end * 1000).toISOString()
+    const periodEndSeconds =
+      subscription.current_period?.end ?? subscription.current_period_end ?? null;
+    const currentPeriodEnd = periodEndSeconds
+      ? new Date(periodEndSeconds * 1000).toISOString()
       : null;
 
     if (customerId) {
