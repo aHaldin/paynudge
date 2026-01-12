@@ -19,11 +19,6 @@ export async function POST() {
   const secretKey = process.env.STRIPE_SECRET_KEY ?? '';
   const priceId = process.env.STRIPE_PRICE_ID ?? '';
 
-  console.log(
-    'Stripe env prefix',
-    secretKey ? secretKey.slice(0, 8) : 'missing'
-  );
-
   if (!secretKey || !priceId) {
     return NextResponse.json(
       {
