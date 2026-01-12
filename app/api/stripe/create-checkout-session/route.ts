@@ -50,7 +50,7 @@ export async function POST() {
 
   try {
     const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: '2024-06-20'
+      apiVersion: Stripe.LatestApiVersion
     });
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',

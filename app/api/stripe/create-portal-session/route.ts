@@ -48,7 +48,7 @@ export async function POST() {
   }
 
   try {
-    const stripe = new Stripe(secretKey, { apiVersion: '2024-06-20' });
+    const stripe = new Stripe(secretKey, { apiVersion: Stripe.LatestApiVersion });
     const session = await stripe.billingPortal.sessions.create({
       customer: profile.stripe_customer_id,
       return_url: `${baseUrl}/app/account`
