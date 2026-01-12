@@ -49,9 +49,7 @@ export async function POST() {
   const origin = headers().get('origin') ?? 'http://localhost:3003';
 
   try {
-    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!, {
-      apiVersion: Stripe.LatestApiVersion
-    });
+    const stripe = new Stripe(process.env.STRIPE_SECRET_KEY!);
     const session = await stripe.checkout.sessions.create({
       mode: 'subscription',
       line_items: [{ price: process.env.STRIPE_PRICE_ID!, quantity: 1 }],
